@@ -5,45 +5,63 @@
 #define IS_OLED_DARK_THEME_SELECTED (APP_THEME_IDX == 2)
 #define IS_CUSTOM_DARK_THEME_SELECTED (APP_THEME_IDX == 3)
 
+static inline BOOL themePageStyleIsDark(id palette) {
+    if (palette && [palette respondsToSelector:@selector(pageStyle)]) {
+        SEL sel = @selector(pageStyle);
+        Method pageStyleMethod = class_getInstanceMethod(object_getClass(palette), sel);
+        if (pageStyleMethod) {
+            NSInteger (*pageStyleIMP)(id, SEL) = (NSInteger (*)(id, SEL))method_getImplementation(pageStyleMethod);
+            return pageStyleIMP(palette, sel) == 1;
+        }
+    }
+    return UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+}
+
 # pragma mark - Old dark theme (lighter grey)
 
 %group gOldDarkTheme
 %hook YTCommonColorPalette
 - (UIColor *)background1 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)background2 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)background3 {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [[UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [[UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)generalBackgroundB {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 - (UIColor *)menuBackground {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+    return themePageStyleIsDark(self) ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
+}
+%end
+
+%hook YTNavigationBar
+- (UIColor *)backgroundColor:(NSInteger)pageStyle {
+    return pageStyle == 1 ? [UIColor colorWithRed:0.129 green:0.129 blue:0.129 alpha:1.0] : %orig;
 }
 %end
 
@@ -88,41 +106,45 @@
 UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:1.0];
 
 %group gOLED
-%hook YTCommonColorPalette
-- (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
+%hook YTColor
++ (UIColor *)black0 {
+    return [UIColor blackColor];
 }
-- (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
++ (UIColor *)black1 {
+    return [UIColor blackColor];
 }
-- (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
++ (UIColor *)black2 {
+    return [UIColor blackColor];
 }
-- (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [[UIColor blackColor] colorWithAlphaComponent:0.9] : %orig;
++ (UIColor *)black3 {
+    return [UIColor blackColor];
 }
-- (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
-}
-- (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
-}
-- (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? [UIColor blackColor] : %orig;
++ (UIColor *)black4 {
+    return [UIColor blackColor];
 }
 %end
 
-// uYou settings
-%hook UITableViewCell
-- (void)_layoutSystemBackgroundView {
-    %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = [UIColor blackColor];
+%hook YTCommonColorPalette
+- (UIColor *)baseBackground {
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
-- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
-    %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = [UIColor blackColor];
+- (UIColor *)brandBackgroundSolid {
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
+}
+- (UIColor *)brandBackgroundPrimary {
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
+}
+- (UIColor *)brandBackgroundSecondary {
+    return themePageStyleIsDark(self) ? [[UIColor blackColor] colorWithAlphaComponent:0.9] : %orig;
+}
+- (UIColor *)raisedBackground {
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
+}
+- (UIColor *)staticBrandBlack {
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
+}
+- (UIColor *)generalBackgroundA {
+    return themePageStyleIsDark(self) ? [UIColor blackColor] : %orig;
 }
 %end
 
@@ -153,8 +175,13 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Explore
-%hook ASScrollView 
+%hook YTNavigationBar
+- (UIColor *)backgroundColor:(NSInteger)pageStyle {
+    return pageStyle == 1 ? [UIColor blackColor] : %orig;
+}
+%end
+
+%hook ASScrollView
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -163,14 +190,18 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Download sort
 %hook GOODialogView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor blackColor]) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            [UIColor blackColor]
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
-// Playlist sort
 %hook ASCollectionView
 - (void)didMoveToWindow {
     %orig;
@@ -193,7 +224,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Others
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
@@ -219,7 +249,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        //
         UIResponder *responder = self.nextResponder;
         UIViewController *closestViewController = nil;
 
@@ -231,21 +260,19 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
             responder = responder.nextResponder;
         }
 
-        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTActionSheetDialogViewController"] && 
-            (([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"]) || 
-            [NSStringFromClass([self.superview class]) isEqualToString:@"_ASDisplayView"] || 
+        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTActionSheetDialogViewController"] &&
+            (([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"]) ||
+            [NSStringFromClass([self.superview class]) isEqualToString:@"_ASDisplayView"] ||
             [NSStringFromClass([self.superview class]) isEqualToString:@"ELMView"])) {
 
             self.backgroundColor = [UIColor clearColor];
         }
 
-        // Save video bottom
-        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTBottomSheetController"]) { self.backgroundColor = [UIColor clearColor]; } 
+        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTBottomSheetController"]) { self.backgroundColor = [UIColor clearColor]; }
 
-        //  Subcriptions header
-        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTMySubsFilterHeaderViewController"] && 
-            ([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"])) { 
-            self.backgroundColor = [UIColor clearColor]; 
+        if ([NSStringFromClass([closestViewController class]) isEqualToString:@"YTMySubsFilterHeaderViewController"] &&
+            ([NSStringFromClass([self.superview class]) isEqualToString:@"YTELMView"])) {
+            self.backgroundColor = [UIColor clearColor];
         }
         if ([self.accessibilityIdentifier isEqualToString:@"brand_promo.view"]) { self.backgroundColor = [UIColor blackColor]; }
         if ([self.accessibilityIdentifier isEqualToString:@"eml.topic_channel_details"]) { self.backgroundColor = [UIColor blackColor]; }
@@ -263,16 +290,27 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Open link with...
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            raisedColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            raisedColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -286,7 +324,6 @@ UIColor* raisedColor = [UIColor colorWithRed:0.035 green:0.035 blue:0.035 alpha:
 }
 %end
 
-// Incompatibility with the new YT Dark theme
 %hook YTColdConfig
 - (BOOL)uiSystemsClientGlobalConfigUseDarkerPaletteBgColorForNative { return NO; }
 %end
@@ -299,39 +336,25 @@ UIColor *customHexColor;
 %group gCustomTheme
 %hook YTCommonColorPalette
 - (UIColor *)baseBackground {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundPrimary {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)brandBackgroundSecondary {
-    return self.pageStyle == 1 ? [customHexColor colorWithAlphaComponent:0.9] : %orig;
+    return themePageStyleIsDark(self) ? [customHexColor colorWithAlphaComponent:0.9] : %orig;
 }
 - (UIColor *)raisedBackground {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)staticBrandBlack {
-    return self.pageStyle == 1 ? customHexColor : %orig;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 - (UIColor *)generalBackgroundA {
-    return self.pageStyle == 1 ? customHexColor : %orig;
-}
-%end
-
-// uYou settings
-%hook UITableViewCell
-- (void)_layoutSystemBackgroundView {
-    %orig;
-    UIView *systemBackgroundView = [self valueForKey:@"_systemBackgroundView"];
-    NSString *backgroundViewKey = class_getInstanceVariable(systemBackgroundView.class, "_colorView") ? @"_colorView" : @"_backgroundView";
-    ((UIView *)[systemBackgroundView valueForKey:backgroundViewKey]).backgroundColor = customHexColor;
-}
-- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
-    %orig;
-    ((UIView *)[[self valueForKey:@"_systemBackgroundView"] valueForKey:@"_colorView"]).backgroundColor = customHexColor;
+    return themePageStyleIsDark(self) ? customHexColor : %orig;
 }
 %end
 
@@ -362,8 +385,13 @@ UIColor *customHexColor;
 }
 %end
 
-// Explore
-%hook ASScrollView 
+%hook YTNavigationBar
+- (UIColor *)backgroundColor:(NSInteger)pageStyle {
+    return pageStyle == 1 ? customHexColor : %orig;
+}
+%end
+
+%hook ASScrollView
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
@@ -372,7 +400,6 @@ UIColor *customHexColor;
 }
 %end
 
-// Your videos
 %hook ASCollectionView
 - (void)didMoveToWindow {
     %orig;
@@ -382,50 +409,80 @@ UIColor *customHexColor;
 }
 %end
 
-// Sub menu?
 %hook ELMView
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        // self.subviews[0].backgroundColor = [UIColor clearColor];
     }
 }
 %end
 
-// Search view
-%hook YTSearchBarView 
+%hook YTSearchBarView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
-// History search view
-%hook YTSearchBoxView 
+%hook YTSearchBoxView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
-
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
-// Comment view
 %hook YTCommentView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTCreateCommentAccessoryView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTCreateCommentTextView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
-- (void)setTextColor:(UIColor *)color { // fix black text in #Shorts video's comment
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor whiteColor]) : %orig;
+- (void)setTextColor:(UIColor *)color {
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            [UIColor whiteColor]
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -433,27 +490,43 @@ UIColor *customHexColor;
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        // self.subviews[2].backgroundColor = customHexColor;
     }
 }
 %end
 
-%hook YTFormattedStringLabel  // YT is werid...
+%hook YTFormattedStringLabel
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig([UIColor clearColor]) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            [UIColor clearColor]
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
-// Live chat comment
-%hook YCHLiveChatActionPanelView 
+%hook YCHLiveChatActionPanelView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook YTEmojiTextView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -461,21 +534,31 @@ UIColor *customHexColor;
 - (void)didMoveToWindow {
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
-        // self.subviews[1].backgroundColor = customHexColor;
     }
 }
 %end
 
-%hook YTCollectionView 
-- (void)setBackgroundColor:(UIColor *)color { 
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+%hook YTCollectionView
+- (void)setBackgroundColor:(UIColor *)color {
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
-//
 %hook YTBackstageCreateRepostDetailView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(customHexColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            customHexColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -491,7 +574,6 @@ UIColor *customHexColor;
 }
 %end
 
-// Others
 %hook _ASDisplayView
 - (void)layoutSubviews {
     %orig;
@@ -539,16 +621,27 @@ UIColor *customHexColor;
 }
 %end
 
-// Open link with...
 %hook ASWAppSwitchingSheetHeaderView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            raisedColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
 %hook ASWAppSwitchingSheetFooterView
 - (void)setBackgroundColor:(UIColor *)color {
-    return IS_DARK_APPEARANCE_ENABLED ? %orig(raisedColor) : %orig;
+    if (IS_DARK_APPEARANCE_ENABLED) {
+        %orig(
+            raisedColor
+        );
+    } else {
+        %orig;
+    }
 }
 %end
 
@@ -557,79 +650,168 @@ UIColor *customHexColor;
     %orig;
     if (IS_DARK_APPEARANCE_ENABLED) {
         self.backgroundColor = raisedColor;
-        // self.subviews[1].backgroundColor = raisedColor;
         self.superview.backgroundColor = raisedColor;
     }
 }
 %end
 
-// Incompatibility with the new YT Dark theme
 %hook YTColdConfig
 - (BOOL)uiSystemsClientGlobalConfigUseDarkerPaletteBgColorForNative { return NO; }
 %end
 %end
 
+# pragma mark - OLED keyboard
 
-# pragma mark - OLED keyboard by @ichitaso <3 - http://gist.github.com/ichitaso/935100fd53a26f18a9060f7195a1be0e
+@interface UIKeyboard : UIView
++ (UIKeyboard *)activeKeyboard;
+@end
+
+@interface UIKBVisualEffectView : UIView
+@property (nonatomic, copy) NSArray *backgroundEffects;
+@end
+
+static inline BOOL oledKBDarkMode(UIView *view) {
+    UIResponder *responder = view;
+    while (responder != nil) {
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            return ((UIViewController *)responder).traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+        }
+        responder = [responder nextResponder];
+    }
+    if (view.window != nil) {
+        return view.window.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+    }
+    return UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
+}
 
 %group gOLEDKB
-%hook TUIEmojiSearchView
-- (void)didMoveToWindow {
+%hook UIKeyboard
+- (void)displayLayer:(id)arg1 {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
-}
-%end
-%hook UIPredictionViewController
-- (void)loadView {
-    %orig;
-    [self.view setBackgroundColor:[UIColor blackColor]];
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
 }
 %end
 
-%hook UICandidateViewController
-- (void)loadView {
-    %orig;
-    [self.view setBackgroundColor:[UIColor blackColor]];
+%hook UIPredictionViewController
+- (id)_currentTextSuggestions {
+    UIKeyboard *keyboard = [%c(UIKeyboard) activeKeyboard];
+    if (oledKBDarkMode(keyboard)) {
+        [self.view setBackgroundColor:[UIColor blackColor]];
+        keyboard.backgroundColor = [UIColor blackColor];
+    } else {
+        [self.view setBackgroundColor:[UIColor clearColor]];
+        keyboard.backgroundColor = [UIColor clearColor];
+    }
+    return %orig;
 }
 %end
 
 %hook UIKeyboardDockView
-- (void)didMoveToWindow {
+- (void)layoutSubviews {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
+    self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
 }
 %end
 
-%hook UIKeyboardLayoutStar 
-- (void)didMoveToWindow {
+%hook UIInputView
+- (void)layoutSubviews {
     %orig;
-    self.backgroundColor = [UIColor blackColor];
+    if ([self isKindOfClass:NSClassFromString(@"TUIEmojiSearchInputView")]
+     || [self isKindOfClass:NSClassFromString(@"_SFAutoFillInputView")]) {
+        self.backgroundColor = oledKBDarkMode(self) ? [UIColor blackColor] : [UIColor clearColor];
+    }
 }
 %end
 
-%hook UIKBRenderConfig // Prediction text color
-- (void)setLightKeyboard:(BOOL)arg1 { %orig(NO); }
+%hook UIKBVisualEffectView
+- (void)layoutSubviews {
+    %orig;
+    if (oledKBDarkMode(self)) {
+        if ([self respondsToSelector:@selector(setBackgroundEffects:)]) {
+            @try { self.backgroundEffects = nil; } @catch (NSException *e) {}
+        }
+        self.backgroundColor = [UIColor blackColor];
+    }
+}
+%end
+%end
+
+static void UYTApplyCellBackgroundColor(id cell, UIColor *color) {
+    if (!cell || !color) return;
+    @try {
+        UIView *backgroundView = [cell valueForKey:@"_systemBackgroundView"];
+        if (![backgroundView isKindOfClass:[UIView class]]) return;
+        for (NSString *key in @[@"_colorView", @"_backgroundView"]) {
+            @try {
+                UIView *tintView = [backgroundView valueForKey:key];
+                if ([tintView isKindOfClass:[UIView class]]) {
+                    tintView.backgroundColor = color;
+                    return;
+                }
+            } @catch (NSException *e) {}
+        }
+    } @catch (NSException *e) {}
+}
+
+%group gOLEDCellTint
+%hook UITableViewCell
+- (void)_layoutSystemBackgroundView {
+    %orig;
+    UYTApplyCellBackgroundColor(self, [UIColor blackColor]);
+}
+- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
+    %orig;
+    UYTApplyCellBackgroundColor(self, [UIColor blackColor]);
+}
+%end
+%end
+
+%group gCustomCellTint
+%hook UITableViewCell
+- (void)_layoutSystemBackgroundView {
+    %orig;
+    UYTApplyCellBackgroundColor(self, customHexColor);
+}
+- (void)_layoutSystemBackgroundView:(BOOL)arg1 {
+    %orig;
+    UYTApplyCellBackgroundColor(self, customHexColor);
+}
 %end
 %end
 
 %ctor {
-    if (IS_OLED_DARK_THEME_SELECTED) {
+    Class paletteClass = %c(YTCommonColorPalette);
+    BOOL pageStyleAvailable = paletteClass && [paletteClass instancesRespondToSelector:@selector(pageStyle)];
+
+    Class cellClass = %c(UITableViewCell);
+    BOOL cellLayoutAPIPresent = cellClass && ([cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView)]
+                                           || [cellClass instancesRespondToSelector:@selector(_layoutSystemBackgroundView:)]);
+
+    if (IS_OLED_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOLED);
+        if (cellLayoutAPIPresent) {
+            %init(gOLEDCellTint);
+        }
     }
-    if (IS_OLD_DARK_THEME_SELECTED) {
+    if (IS_OLD_DARK_THEME_SELECTED && pageStyleAvailable) {
         %init(gOldDarkTheme)
     }
+    if (IS_CUSTOM_DARK_THEME_SELECTED && pageStyleAvailable) {
+        NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
+        NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
+        [unarchiver setRequiresSecureCoding:NO];
+        NSString *hexString = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+        if (hexString != nil) {
+            customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
+            %init(gCustomTheme);
+            if (cellLayoutAPIPresent) {
+                %init(gCustomCellTint);
+            }
+        }
+    }
+
     if (IS_ENABLED(@"oledKeyBoard_enabled")) {
         %init(gOLEDKB);
     }
-    if (IS_CUSTOM_DARK_THEME_SELECTED) {
-    NSData *colorData = [[NSUserDefaults standardUserDefaults] objectForKey:@"kCustomThemeColor"];
-    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:colorData error:nil];
-    [unarchiver setRequiresSecureCoding:NO];
-    NSString *hexString = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-    if (hexString != nil) {
-        customHexColor = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-        %init(gCustomTheme);
-        }
-    }
 }
+

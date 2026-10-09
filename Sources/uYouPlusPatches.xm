@@ -1,24 +1,78 @@
 #import "uYouPlusPatches.h"
+#import <fcntl.h>
+#import <unistd.h>
+
+#define YT_BUNDLE_ID @"com.google.ios.youtube"
+#define YT_NAME @"YouTube"
+
+static NSString *accessGroupID() {
+    NSDictionary *query = [NSDictionary dictionaryWithObjectsAndKeys:
+                           (__bridge NSString *)kSecClassGenericPassword, (__bridge NSString *)kSecClass,
+                           @"bundleSeedID", kSecAttrAccount,
+                           @"", kSecAttrService,
+                           (id)kCFBooleanTrue, kSecReturnAttributes,
+                           nil];
+    CFDictionaryRef result = nil;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+    if (status == errSecItemNotFound) {
+        status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+        if (status != errSecSuccess) {
+            return nil;
+        }
+    }
+    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
+    return accessGroup;
+}
+
+@interface MPNowPlayingInfoCenter : NSObject
+@property (nonatomic, copy) NSDictionary *nowPlayingInfo;
++ (MPNowPlayingInfoCenter *)defaultCenter;
+@end
 
 # pragma mark - YouTube patches
 
-// Fix Google Sign in by @PoomSmart and @level3tjg (qnblackcat/uYouPlus#684)
+%group gPatches
+
 %hook NSBundle
-- (NSDictionary *)infoDictionary {
-    NSMutableDictionary *info = %orig.mutableCopy;
++ (NSBundle *)bundleWithIdentifier:(NSString *)identifier {
+    if ([identifier isEqualToString:YT_BUNDLE_ID])
+        return NSBundle.mainBundle;
+    return %orig(
+        identifier
+    );
+}
+- (NSString *)bundleIdentifier {
     if ([self isEqual:NSBundle.mainBundle])
-        info[@"CFBundleIdentifier"] = @"com.google.ios.youtube";
+        return YT_BUNDLE_ID;
+    return %orig;
+}
+- (NSDictionary *)infoDictionary {
+    NSDictionary *dict = %orig;
+    if (![self isEqual:NSBundle.mainBundle])
+        return %orig;
+    NSMutableDictionary *info = [dict mutableCopy];
+    if (info[@"CFBundleIdentifier"]) info[@"CFBundleIdentifier"] = YT_BUNDLE_ID;
+    if (info[@"CFBundleDisplayName"]) info[@"CFBundleDisplayName"] = YT_NAME;
+    if (info[@"CFBundleName"]) info[@"CFBundleName"] = YT_NAME;
     return info;
+}
+- (id)objectForInfoDictionaryKey:(NSString *)key {
+    if (![self isEqual:NSBundle.mainBundle])
+        return %orig;
+    if ([key isEqualToString:@"CFBundleIdentifier"])
+        return YT_BUNDLE_ID;
+    if ([key isEqualToString:@"CFBundleDisplayName"] || [key isEqualToString:@"CFBundleName"])
+        return YT_NAME;
+    return %orig;
 }
 %end
 
-// Workaround for MiRO92/uYou-for-YouTube#12, qnblackcat/uYouPlus#263
 %hook YTDataUtils
 + (NSMutableDictionary *)spamSignalsDictionary {
-    return nil;
+    return [@{ @"ms": @"" } mutableCopy];
 }
 + (NSMutableDictionary *)spamSignalsDictionaryWithoutIDFA {
-    return nil;
+    return [@{} mutableCopy];
 }
 %end
 
@@ -26,223 +80,384 @@
 - (BOOL)disableAfmaIdfaCollection { return NO; }
 %end
 
-// Reposition "Create" Tab to the Center in the Pivot Bar - qnblackcat/uYouPlus#107
-/*
-static void repositionCreateTab(YTIGuideResponse *response) {
-    NSMutableArray<YTIGuideResponseSupportedRenderers *> *renderers = [response itemsArray];
-    for (YTIGuideResponseSupportedRenderers *guideRenderers in renderers) {
-        YTIPivotBarRenderer *pivotBarRenderer = [guideRenderers pivotBarRenderer];
-        NSMutableArray<YTIPivotBarSupportedRenderers *> *items = [pivotBarRenderer itemsArray];
-        NSUInteger createIndex = [items indexOfObjectPassingTest:^BOOL(YTIPivotBarSupportedRenderers *renderers, NSUInteger idx, BOOL *stop) {
-            return [[[renderers pivotBarItemRenderer] pivotIdentifier] isEqualToString:@"FEuploads"];
-        }];
-        if (createIndex != NSNotFound) {
-            YTIPivotBarSupportedRenderers *createTab = [items objectAtIndex:createIndex];
-            [items removeObjectAtIndex:createIndex];
-            NSUInteger centerIndex = items.count / 2;
-            [items insertObject:createTab atIndex:centerIndex]; // Reposition the "Create" tab at the center
-        }
-    }
-}
-%hook YTGuideServiceCoordinator
-- (void)handleResponse:(YTIGuideResponse *)response withCompletion:(id)completion {
-    repositionCreateTab(response);
-    %orig(response, completion);
-}
-- (void)handleResponse:(YTIGuideResponse *)response error:(id)error completion:(id)completion {
-    repositionCreateTab(response);
-    %orig(response, error, completion);
-}
-%end
-*/
-
-// https://github.com/PoomSmart/YouTube-X/blob/1e62b68e9027fcb849a75f54a402a530385f2a51/Tweak.x#L27
-// %hook YTAdsInnerTubeContextDecorator
-// - (void)decorateContext:(id)context {}
-// %end
-
-# pragma mark - uYou patches
-
-// Workaround for qnblackcat/uYouPlus#10
-%hook UIViewController
-- (UITraitCollection *)traitCollection {
-    @try {
-        return %orig;
-    } @catch(NSException *e) {
-        return [UITraitCollection currentTraitCollection];
-    }
-}
-%end
-
-// Prevent uYou player bar from showing when not playing downloaded media
-%hook PlayerManager
-- (void)pause {
-    if (isnan([self progress]))
-        return;
-    %orig;
-}
-%end
-
-// Workaround for issue #54
 %hook YTMainAppVideoPlayerOverlayViewController
 - (void)updateRelatedVideos {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"relatedVideosAtTheEndOfYTVideos"] == NO) {}
-    else { return %orig; }
-}
-%end
-
-// iOS 16 uYou crash fix - @level3tjg: https://github.com/qnblackcat/uYouPlus/pull/224
-// %group iOS16
-// %hook OBPrivacyLinkButton
-// %new
-// - (instancetype)initWithCaption:(NSString *)caption
-//                      buttonText:(NSString *)buttonText
-//                           image:(UIImage *)image
-//                       imageSize:(CGSize)imageSize
-//                    useLargeIcon:(BOOL)useLargeIcon {
-//   return [self initWithCaption:caption
-//                     buttonText:buttonText
-//                          image:image
-//                      imageSize:imageSize
-//                   useLargeIcon:useLargeIcon
-//                displayLanguage:[NSLocale currentLocale].languageCode];
-// }
-// %end
-// %end
-
-// Fix uYou playback speed crashes YT v18.49.3+, see https://github.com/iCrazeiOS/uYouCrashFix
-// %hook YTPlayerViewController
-// %new
-// -(float)currentPlaybackRateForVarispeedSwitchController:(id)arg1 {
-// 	return [[self activeVideo] playbackRate];
-// }
-
-// %new
-// -(void)varispeedSwitchController:(id)arg1 didSelectRate:(float)arg2 {
-// 	[[self activeVideo] setPlaybackRate:arg2];
-// }
-// %end
-
-// Fix streched artwork in uYou's player view - https://github.com/MiRO92/uYou-for-YouTube/issues/287
-%hook ArtworkImageView
-- (id)imageView {
-    UIImageView * imageView = %orig;
-    imageView.contentMode = UIViewContentModeScaleAspectFit;
-    // Make artwork a bit bigger
-    UIView *artworkImageView = imageView.superview;
-    if (artworkImageView != nil && !artworkImageView.translatesAutoresizingMaskIntoConstraints) {
-        [artworkImageView.leftAnchor constraintEqualToAnchor:artworkImageView.superview.leftAnchor constant:16].active = YES;
-        [artworkImageView.rightAnchor constraintEqualToAnchor:artworkImageView.superview.rightAnchor constant:-16].active = YES;
-    }
-    return imageView;
-}
-%end
-
-// Fix navigation bar showing a lighter grey with default dark mode - https://github.com/therealFoxster/uYouPlus/commit/8db8197
-%hook YTCommonColorPalette
-- (UIColor *)brandBackgroundSolid {
-    return self.pageStyle == 1 ? [UIColor colorWithRed:0.05882352941176471 green:0.05882352941176471 blue:0.05882352941176471 alpha:1.0] : %orig;
-}
-%end
-
-// Fix uYou's appearance not updating if the app is backgrounded
-static DownloadsPagerVC *downloadsPagerVC;
-static NSUInteger selectedTabIndex;
-%hook DownloadsPagerVC
-- (id)init {
-    downloadsPagerVC = %orig;
-    return downloadsPagerVC;
-}
-- (void)viewPager:(id)viewPager didChangeTabToIndex:(NSUInteger)arg1 fromTabIndex:(NSUInteger)arg2 {
-    %orig; selectedTabIndex = arg1;
-}
-%end
-static void refreshUYouAppearance() {
-    if (!downloadsPagerVC) return;
-    // View pager
-    [downloadsPagerVC updatePageStyles];
-    // Views
-    for (UIViewController *vc in [downloadsPagerVC viewControllers]) {
-        if ([vc isKindOfClass:%c(DownloadingVC)]) {
-            // `Downloading` view
-            [(DownloadingVC *)vc updatePageStyles];
-            for (UITableViewCell *cell in [(DownloadingVC *)vc tableView].visibleCells)
-                if ([cell isKindOfClass:%c(DownloadingCell)])
-                    [(DownloadingCell *)cell updatePageStyles];
-        }
-        else if ([vc isKindOfClass:%c(DownloadedVC)]) {
-            // `All`, `Audios`, `Videos`, `Shorts` views
-            [(DownloadedVC *)vc updatePageStyles];
-            for (UITableViewCell *cell in [(DownloadedVC *)vc tableView].visibleCells)
-                if ([cell isKindOfClass:%c(DownloadedCell)])
-                    [(DownloadedCell *)cell updatePageStyles];
-        }
-    }
-    // View pager tabs
-    for (UIView *subview in [downloadsPagerVC view].subviews) {
-        if ([subview isKindOfClass:[UIScrollView class]]) {
-            UIScrollView *tabs = (UIScrollView *)subview;
-            NSUInteger i = 0;
-            for (UIView *item in tabs.subviews) {
-                if ([item isKindOfClass:[UILabel class]]) {
-                    // Tab label
-                    UILabel *tabLabel = (UILabel *)item;
-                    if (i == selectedTabIndex) {} // Selected tab should be excluded
-                    else [tabLabel setTextColor:[UILabel _defaultColor]];
-                    i++;
-                }
-            }
-        }
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"relatedVideosAtTheEndOfYTVideos"]) {
+        %orig;
     }
 }
-%hook UIViewController
-- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+%end
+
+typedef NS_ENUM(NSInteger, ShareEntityType) {
+    ShareEntityFieldVideo     = 1,
+    ShareEntityFieldPlaylist  = 2,
+    ShareEntityFieldChannel   = 3,
+    ShareEntityFieldPost      = 6,
+    ShareEntityFieldClip      = 8,
+    ShareEntityFieldShortFlag = 10
+};
+
+static inline NSString *extractIdWithFormat(GPBUnknownFields *fields, NSInteger fieldNumber, NSString *format) {
+    NSArray<GPBUnknownField *> *fieldArray = [fields fields:fieldNumber];
+    if ([fieldArray count] != 1)
+        return nil;
+    NSString *value = [[NSString alloc] initWithData:[fieldArray firstObject].lengthDelimited encoding:NSUTF8StringEncoding];
+    return [NSString stringWithFormat:format, value];
+}
+
+static NSString *extractUrlFromFields(GPBUnknownFields *fields) {
+    NSString *shareUrl;
+
+    NSArray<GPBUnknownField *> *shareEntityClip = [fields fields:ShareEntityFieldClip];
+    if ([shareEntityClip count] == 1) {
+        GPBMessage *clipMessage = [%c(GPBMessage) parseFromData:[shareEntityClip firstObject].lengthDelimited error:nil];
+        shareUrl = extractIdWithFormat([[%c(GPBUnknownFields) alloc] initFromMessage:clipMessage], 1, @"https://youtube.com/clip/%@");
+    }
+
+    if (!shareUrl)
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldChannel, @"https://youtube.com/channel/%@");
+
+    if (!shareUrl)
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldPost, @"https://youtube.com/post/%@");
+
+    if (!shareUrl) {
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldPlaylist, @"%@");
+        if (shareUrl) {
+            if (![shareUrl hasPrefix:@"PL"] && ![shareUrl hasPrefix:@"FL"])
+                shareUrl = [shareUrl stringByAppendingString:@"&playnext=1"];
+            shareUrl = [@"https://youtube.com/playlist?list=" stringByAppendingString:shareUrl];
+        }
+    }
+
+    if (!shareUrl) {
+        NSString *format = ([fields fields:ShareEntityFieldShortFlag].count > 0) ? @"https://youtube.com/shorts/%@" : @"https://youtube.com/watch?v=%@";
+        shareUrl = extractIdWithFormat(fields, ShareEntityFieldVideo, format);
+    }
+
+    return shareUrl;
+}
+
+static NSString *extractUrlFromDescription(NSString *desc) {
+    NSRegularExpression *regex;
+    NSTextCheckingResult *match;
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldChannel] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) return [NSString stringWithFormat:@"https://youtube.com/channel/%@", [desc substringWithRange:[match rangeAtIndex:1]]];
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldPost] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) return [NSString stringWithFormat:@"https://youtube.com/post/%@", [desc substringWithRange:[match rangeAtIndex:1]]];
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldPlaylist] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) {
+        NSString *playlistId = [desc substringWithRange:[match rangeAtIndex:1]];
+        if (![playlistId hasPrefix:@"PL"] && ![playlistId hasPrefix:@"FL"])
+            playlistId = [playlistId stringByAppendingString:@"&playnext=1"];
+        return [NSString stringWithFormat:@"https://youtube.com/playlist?list=%@", playlistId];
+    }
+
+    regex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\b%ld: \"([^\"]+)\"", (long)ShareEntityFieldVideo] options:0 error:nil];
+    match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (match) return [NSString stringWithFormat:@"https://youtube.com/watch?v=%@", [desc substringWithRange:[match rangeAtIndex:1]]];
+
+    return nil;
+}
+
+static BOOL showNativeShareSheet(NSString *serializedShareEntity, UIView *sourceView) {
+    GPBMessage *shareEntity = [%c(GPBMessage) deserializeFromString:serializedShareEntity];
+    if (!shareEntity) return NO;
+
+    NSString *shareUrl;
+    GPBUnknownFields *fields = [[%c(GPBUnknownFields) alloc] initFromMessage:shareEntity];
+
+    if (fields && [fields count] > 0)
+        shareUrl = extractUrlFromFields(fields);
+    else
+        shareUrl = extractUrlFromDescription([shareEntity description]);
+
+    if (!shareUrl) return NO;
+
+    UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[shareUrl] applicationActivities:nil];
+    activityViewController.excludedActivityTypes = @[UIActivityTypeAssignToContact, UIActivityTypePrint];
+
+    UIViewController *topViewController = [%c(YTUIUtils) topViewControllerForPresenting];
+    if (activityViewController.popoverPresentationController) {
+        if (sourceView) {
+            activityViewController.popoverPresentationController.sourceView = sourceView;
+            activityViewController.popoverPresentationController.sourceRect = [sourceView convertRect:sourceView.bounds toView:topViewController.view];
+        } else {
+            activityViewController.popoverPresentationController.sourceView = topViewController.view;
+            CGFloat w = [UIScreen mainScreen].bounds.size.width;
+            CGFloat h = [UIScreen mainScreen].bounds.size.height;
+            activityViewController.popoverPresentationController.sourceRect = CGRectMake(w / 2.0, h, 0, 0);
+        }
+    }
+    [topViewController presentViewController:activityViewController animated:YES completion:nil];
+    return YES;
+}
+
+%hook ELMPBShowActionSheetCommand
+- (void)executeWithCommandContext:(ELMCommandContext *)context handler:(id)handler {
+    NSString *desc = [self description];
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"serialized_share_entity: \"([^\"]+)\"" options:0 error:nil];
+    NSTextCheckingResult *match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (!match) return %orig;
+
+    NSString *serializedShareEntity = [desc substringWithRange:[match rangeAtIndex:1]];
+    UIView *fromView;
+    if ([context.context respondsToSelector:@selector(fromView)])
+        fromView = context.context.fromView;
+
+    if (!showNativeShareSheet(serializedShareEntity, fromView))
+        return %orig;
+}
+%end
+
+%hook YTShareEntityEndpointCommandHandler
+- (void)executeWithCommand:(YTICommand *)command entry:(id)entry fromView:(UIView *)fromView sender:(id)sender {
+    NSString *desc = [command description];
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"serialized_share_entity: \"([^\"]+)\"" options:0 error:nil];
+    NSTextCheckingResult *match = [regex firstMatchInString:desc options:0 range:NSMakeRange(0, desc.length)];
+    if (!match) return %orig;
+
+    NSString *serializedShareEntity = [desc substringWithRange:[match rangeAtIndex:1]];
+    if (!showNativeShareSheet(serializedShareEntity, fromView))
+        return %orig;
+}
+%end
+
+%end
+
+%group gSideloadingPatches
+%hook NSFileManager
+- (NSURL *)containerURLForSecurityApplicationGroupIdentifier:(NSString *)groupIdentifier {
+    if (groupIdentifier != nil) {
+        NSArray *paths = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask];
+        NSURL *documentsURL = [paths lastObject];
+        return [documentsURL URLByAppendingPathComponent:@"AppGroup"];
+    }
+    return %orig(
+        groupIdentifier
+    );
+}
+%end
+
+%hook YTPlayerOverlayManager
+%property (nonatomic, assign) float currentPlaybackRate;
+
+%new
+- (void)setCurrentPlaybackRate:(float)rate {
+    if (![self respondsToSelector:@selector(varispeedSwitchController:didSelectRate:)])
+        return;
+    id varispeed = [self respondsToSelector:@selector(varispeedController)] ? [self varispeedController] : nil;
+    if (!varispeed)
+        return;
+    @try {
+        [self varispeedSwitchController:varispeed didSelectRate:rate];
+    } @catch (NSException *e) {
+    }
+}
+
+%new
+- (void)setPlaybackRate:(float)rate {
+    if (![self respondsToSelector:@selector(varispeedSwitchController:didSelectRate:)])
+        return;
+    id varispeed = [self respondsToSelector:@selector(varispeedController)] ? [self varispeedController] : nil;
+    if (!varispeed)
+        return;
+    @try {
+        [self varispeedSwitchController:varispeed didSelectRate:rate];
+    } @catch (NSException *e) {
+    }
+}
+%end
+
+%hook YTVersionUtils
++ (NSString *)appName { return YT_NAME; }
++ (NSString *)appID { return YT_BUNDLE_ID; }
+%end
+
+%hook GCKBUtils
++ (NSString *)appIdentifier { return YT_BUNDLE_ID; }
+%end
+
+%hook GPCDeviceInfo
++ (NSString *)bundleId { return YT_BUNDLE_ID; }
+%end
+
+%hook OGLBundle
++ (NSString *)shortAppName { return YT_NAME; }
+%end
+
+%hook GVROverlayView
++ (NSString *)appName { return YT_NAME; }
+%end
+
+%hook OGLPhenotypeFlagServiceImpl
+- (NSString *)bundleId { return YT_BUNDLE_ID; }
+%end
+
+%hook APMAEU
++ (BOOL)isFAS { return YES; }
+%end
+
+%hook GULAppEnvironmentUtil
++ (BOOL)isFromAppStore { return YES; }
+%end
+
+%hook SSOClientLogin
++ (NSString *)defaultSourceString { return YT_BUNDLE_ID; }
+%end
+
+%hook SSOConfiguration
+- (id)initWithClientID:(id)clientID supportedAccountServices:(id)supportedAccountServices {
+    self = %orig;
+    [self setValue:YT_NAME forKey:@"_shortAppName"];
+    [self setValue:YT_BUNDLE_ID forKey:@"_applicationIdentifier"];
+    return self;
+}
+%end
+
+%hook YTHotConfig
+- (BOOL)clientInfraClientConfigIosEnableFillingEncodedHacksInnertubeContext { return NO; }
+%end
+
+%hook SSOKeychainHelper
++ (id)accessGroup { return accessGroupID(); }
++ (id)sharedAccessGroup { return accessGroupID(); }
+%end
+
+%hook SSOFolsomKeychainUtils
+- (id)sharedAccessGroup { return accessGroupID(); }
+%end
+
+%hook GULKeychainStorage
+- (void)getObjectForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        key,
+        objectClass,
+        accessGroup,
+        handler
+    );
+}
+- (void)setObject:(id)object forKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        object,
+        key,
+        accessGroup,
+        handler
+    );
+}
+- (void)removeObjectForKey:(id)key accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        key,
+        accessGroup,
+        handler
+    );
+}
+- (void)getObjectFromKeychainForKey:(id)key objectClass:(Class)objectClass accessGroup:(id)accessGroup completionHandler:(id)handler {
+    accessGroup = accessGroupID();
+    %orig(
+        key,
+        objectClass,
+        accessGroup,
+        handler
+    );
+}
+- (id)keychainQueryWithKey:(id)key accessGroup:(id)accessGroup {
+    accessGroup = accessGroupID();
+    return %orig(
+        key,
+        accessGroup
+    );
+}
+%end
+
+%hook GNPEncryptionConfiguration
+- (id)initWithKeychainAccessGroup:(id)arg {
+    arg = accessGroupID();
+    return %orig(
+        arg
+    );
+}
+- (id)keychainAccessGroup { return accessGroupID(); }
+%end
+
+%hook FIRInstallationsStore
+- (id)initWithSecureStorage:(id)arg1 accessGroup:(id)arg2 {
+    arg2 = accessGroupID();
+    return %orig(
+        arg1,
+        arg2
+    );
+}
+- (id)accessGroup { return accessGroupID(); }
+%end
+
+%hook CHMConfiguration
+- (void)setKeychainAccessGroup:(id)arg {
+    arg = accessGroupID();
+    %orig(
+        arg
+    );
+}
+- (id)keychainAccessGroup { return accessGroupID(); }
+%end
+
+%end
+
+%group gDynamicIslandFix
+%hook MPNowPlayingInfoCenter
+- (void)setNowPlayingInfo:(NSDictionary *)info {
+    UIApplication *app = [UIApplication sharedApplication];
+    BOOL isActive = (app != nil && app.applicationState == UIApplicationStateActive);
+    if (info != nil && isActive) {
+        return;
+    }
     %orig;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        refreshUYouAppearance();
+}
+%end
+%end
+
+static BOOL UYTIsJailbroken(void) {
+    static BOOL result = NO;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        result = ([[NSFileManager defaultManager] fileExistsAtPath:@"/var/jb"]) ||
+                 ([[NSFileManager defaultManager] fileExistsAtPath:@"/.bootstrapped"]) ||
+                 (objc_getClass("LSApplicationWorkspace") != NULL && access("/Applications", F_OK) == 0);
     });
+    return result;
 }
-%end
-
-// Prevent uYou's playback from colliding with YouTube's
-%hook PlayerVC
-- (void)close {
-    %orig;
-    [[%c(PlayerManager) sharedInstance] setSource:nil];
-}
-%end
-%hook HAMPlayerInternal
-- (void)play {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[%c(PlayerManager) sharedInstance] pause];
-    });
-    %orig;
-}
-%end
-
-// Temporarily disable uYou's bouncy animation cause it's buggy
-%hook SSBouncyButton
-- (void)beginShrinkAnimation {}
-- (void)beginEnlargeAnimation {}
-%end
 
 %ctor {
     %init;
-    // if (@available(iOS 16, *)) {
-    //     %init(iOS16);
-    // }
+    %init(gPatches);
+    %init(gSideloadingPatches);
+    BOOL diFixEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:kEnableDynamicIslandFix];
+    if (!UYTIsJailbroken() && diFixEnabled) {
+        %init(gDynamicIslandFix);
 
-    // Disable broken options
-    
-    // Disable uYou's auto updates
+        [[NSNotificationCenter defaultCenter]
+            addObserverForName:UIApplicationDidBecomeActiveNotification
+                        object:nil queue:[NSOperationQueue mainQueue]
+                   usingBlock:^(NSNotification *note) {
+            @try {
+                [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
+            } @catch (NSException *e) {}
+        }];
+    }
+
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"automaticallyCheckForUpdates"];
 
-    // Disable uYou's welcome screen (fix #1147)
     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"showedWelcomeVC"];
- 
-    // Disable uYou's disable age restriction
+
     [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"disableAgeRestriction"];
 
-    // Disable uYou's playback speed controls (prevent crash on video playback https://github.com/therealFoxster/uYouPlus/issues/2#issuecomment-1894912963)
-    // [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"showPlaybackRate"];
 }
+

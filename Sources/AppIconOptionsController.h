@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 
-@interface AppIconOptionsController : UIViewController
+@interface AppIconOptionsController : UIViewController <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 
 @property (strong, nonatomic) UIButton *backButton;
 
@@ -12,11 +12,3 @@
 
 @end
 
-@implementation UIImage (CustomImages)
-
-+ (UIImage *)customBackButtonImage {
-    NSBundle *bundle = [NSBundle bundleWithPath:[[NSBundle mainBundle] pathForResource:@"uYouPlus" ofType:@"bundle"]];
-    return [UIImage imageNamed:@"Back.png" inBundle:bundle compatibleWithTraitCollection:nil];
-}
-
-@end
